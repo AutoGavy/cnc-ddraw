@@ -101,8 +101,7 @@ BOOL d3d9_on_device_lost()
 {
     if (g_d3d9.device && IDirect3DDevice9_TestCooperativeLevel(g_d3d9.device) == D3DERR_DEVICENOTRESET)
     {
-        //return d3d9_reset();
-        return d3d9_create();
+        return d3d9_reset();
     }
 
     return FALSE;
