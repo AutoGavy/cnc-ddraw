@@ -59,6 +59,16 @@ HRESULT dd_EnumDisplayModes(
 
         while (EnumDisplaySettings(NULL, i, &m))
         {
+            TRACE_EXT(
+                "     %u: %ux%u@%u %u bpp | flags=0x%08X, FO=%u\n",
+                i,
+                m.dmPelsWidth,
+                m.dmPelsHeight,
+                m.dmDisplayFrequency,
+                m.dmBitsPerPel,
+                m.dmDisplayFlags,
+                m.dmDisplayFixedOutput);
+
             if (refresh_rate != 60 && m.dmDisplayFrequency >= 50)
                 refresh_rate = m.dmDisplayFrequency;
 
@@ -424,7 +434,7 @@ HRESULT dd_SetDisplayMode(DWORD dwWidth, DWORD dwHeight, DWORD dwBPP, DWORD dwFl
     g_ddraw->render.height = g_config.window_rect.bottom;
 
     /* temporary fix: center window for games that keep changing their resolution */
-    if (g_ddraw->width &&
+    if ((g_ddraw->width || g_ddraw->infantryhack) &&
         (g_ddraw->width != dwWidth || g_ddraw->height != dwHeight) &&
         (dwWidth > g_config.window_rect.right || dwHeight > g_config.window_rect.bottom))
     {
@@ -763,7 +773,7 @@ HRESULT dd_SetDisplayMode(DWORD dwWidth, DWORD dwHeight, DWORD dwBPP, DWORD dwFl
         g_ddraw->render.thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)g_ddraw->renderer, NULL, 0, NULL);
     }
 
-    if (dwFlags & SDM_MODE_SET_BY_GAME)
+    if ((dwFlags & SDM_MODE_SET_BY_GAME) && !g_ddraw->infantryhack)
     {
         real_SendMessageA(g_ddraw->hwnd, WM_SIZE_DDRAW, 0, MAKELPARAM(g_ddraw->width, g_ddraw->height));
         real_SendMessageA(g_ddraw->hwnd, WM_MOVE_DDRAW, 0, MAKELPARAM(0, 0));
@@ -853,18 +863,25 @@ HRESULT dd_SetCooperativeLevel(HWND hwnd, DWORD dwFlags)
     /* Infantry Online Zone List Window */
     if (g_ddraw->infantryhack)
     {
-        static BOOL windowed;
+        static BOOL windowed, fullscreen;
 
-        if (!(dwFlags & DDSCL_FULLSCREEN))
-        {
-            windowed = g_ddraw->windowed;
-
-            g_ddraw->windowed = TRUE;
-            dd_SetDisplayMode(640, 480, 8, SDM_MODE_SET_BY_GAME);
-        }
-        else
+        if (dwFlags & DDSCL_FULLSCREEN)
         {
             g_ddraw->windowed = windowed;
+            g_ddraw->fullscreen = fullscreen;
+        }
+        else if (dwFlags & DDSCL_NOWINDOWCHANGES)
+        {
+            windowed = g_ddraw->windowed;
+            fullscreen = g_ddraw->fullscreen;
+
+            if (GetMenu(g_ddraw->hwnd) != NULL)
+            {
+                g_ddraw->windowed = TRUE;
+                g_ddraw->fullscreen = FALSE;
+            }
+
+            dd_SetDisplayMode(640, 480, 16, SDM_MODE_SET_BY_GAME);
         }
     }
 

@@ -460,7 +460,7 @@ LRESULT CALLBACK fake_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
             exit(0);
         }
 
-        if (wParam == SC_KEYMENU)
+        if (wParam == SC_KEYMENU && GetMenu(g_ddraw->hwnd) == NULL)
             return 0;
 
         if (!GameHandlesClose)
@@ -736,8 +736,8 @@ LRESULT CALLBACK fake_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
             }
         }
 
-        x = min(x, g_ddraw->width);
-        y = min(y, g_ddraw->height);
+        x = min(x, g_ddraw->width - 1);
+        y = min(y, g_ddraw->height - 1);
 
         InterlockedExchange((LONG*)&g_ddraw->cursor.x, x);
         InterlockedExchange((LONG*)&g_ddraw->cursor.y, y);
