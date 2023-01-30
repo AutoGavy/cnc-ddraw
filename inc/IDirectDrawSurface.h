@@ -21,14 +21,19 @@ typedef struct IDirectDrawSurfaceImpl
     DWORD width;
     DWORD height;
     DWORD bpp;
+    DWORD size;
     DWORD flags;
     DWORD caps;
+    DWORD backbuffer_count;
+    CRITICAL_SECTION cs;
 
     IDirectDrawPaletteImpl* palette;
 
     void* surface;
-    DWORD l_pitch;
-    DWORD lx_pitch;
+    HANDLE mapping;
+    DWORD pitch;
+    DWORD bytes_pp;
+    BOOL custom_buf;
 
     PBITMAPINFO bmi;
     HBITMAP bitmap;

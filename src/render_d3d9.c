@@ -8,7 +8,9 @@
 #include "render_d3d9.h"
 #include "utils.h"
 #include "wndproc.h"
+#include "blt.h"
 #include "debug.h"
+#include "D3d9types.h"
 
 
 static BOOL d3d9_create_resouces();
@@ -36,8 +38,12 @@ BOOL d3d9_is_available()
 
 BOOL d3d9_create()
 {
-    if (!d3d9_release())
-        return FALSE;
+    if (g_d3d9.hwnd == g_ddraw->hwnd && d3d9_create_resources() && d3d9_reset(g_ddraw->windowed))
+    {
+        return TRUE;
+    }
+    
+    d3d9_release();
 
     if (!g_d3d9.hmodule)
         g_d3d9.hmodule = LoadLibrary("d3d9.ext");
@@ -53,12 +59,68 @@ BOOL d3d9_create()
                 d3d9_enable_shim(TRUE);
         }
 
-        IDirect3D9* (WINAPI * d3d_create9)(UINT) =
-            (IDirect3D9 * (WINAPI*)(UINT))GetProcAddress(g_d3d9.hmodule, "Direct3DCreate9");
+        LPDIRECT3D9 d3d9on12 = NULL;
+        D3D9ON12_ARGS args;
+        memset(&args, 0, sizeof(args));
+        args.Enable9On12 = TRUE;
 
-        if (d3d_create9 && (g_d3d9.instance = d3d_create9(D3D_SDK_VERSION)))
+        IDirect3D9* (WINAPI * d3d_create9on12)(INT, D3D9ON12_ARGS*, UINT) = NULL;
+        IDirect3D9* (WINAPI * d3d_create9)(UINT) = NULL;
+
+        if (g_ddraw->d3d9on12)
         {
+            d3d_create9on12 = (void*)GetProcAddress(g_d3d9.hmodule, "Direct3DCreate9On12");
+        }
+        else
+        {
+            d3d_create9 = (void*)GetProcAddress(g_d3d9.hmodule, "Direct3DCreate9");
+        }
+
+        if ((d3d_create9on12 && (d3d9on12 = g_d3d9.instance = d3d_create9on12(D3D_SDK_VERSION, &args, 1))) ||
+            (d3d_create9 && (g_d3d9.instance = d3d_create9(D3D_SDK_VERSION))))
+        {
+#if _DEBUG 
+            D3DADAPTER_IDENTIFIER9 ai = {0};
+            D3DCAPS9 caps = { 0 };
+            HRESULT hr = IDirect3D9_GetAdapterIdentifier(g_d3d9.instance, g_ddraw->d3d9_adapter, 0, &ai);
+            HRESULT hr2 = IDirect3D9_GetDeviceCaps(g_d3d9.instance, g_ddraw->d3d9_adapter, D3DDEVTYPE_HAL, &caps);
+
+            if (SUCCEEDED(hr)) 
+            {
+                TRACE("+--Direct3D9-------------------------------------\n");
+                TRACE("| D3D9On12:            %s\n", d3d9on12 != NULL ? "True" : "False");
+                TRACE("| VendorId:            0x%x\n", ai.VendorId);
+                TRACE("| DeviceId:            0x%x\n", ai.DeviceId);
+                TRACE("| Revision:            0x%x\n", ai.Revision);
+                TRACE("| SubSysId:            0x%x\n", ai.SubSysId);
+                TRACE("| Version:             %hu.%hu.%hu.%hu\n", 
+                    HIWORD(ai.DriverVersion.HighPart), 
+                    LOWORD(ai.DriverVersion.HighPart), 
+                    HIWORD(ai.DriverVersion.LowPart), 
+                    LOWORD(ai.DriverVersion.LowPart));
+
+                TRACE("| Driver:              %s\n", ai.Driver);
+                TRACE("| Description:         %s\n", ai.Description);
+
+                if (SUCCEEDED(hr2))
+                {
+                    TRACE("| MaxTextureWidth:     %d\n", caps.MaxTextureWidth);
+                    TRACE("| MaxTextureHeight:    %d\n", caps.MaxTextureHeight);
+
+                    TRACE("| VertexShaderVersion: %d.%d\n",
+                        (caps.VertexShaderVersion >> 8) & 0xFF,
+                        caps.VertexShaderVersion & 0xFF);
+
+                    TRACE("| PixelShaderVersion:  %d.%d\n",
+                        (caps.PixelShaderVersion >> 8) & 0xFF,
+                        caps.PixelShaderVersion & 0xFF);
+                }
+                TRACE("+------------------------------------------------\n");
+            }
+#endif
+
             g_d3d9.bits_per_pixel = g_ddraw->render.bpp ? g_ddraw->render.bpp : g_ddraw->mode.dmBitsPerPel;
+            g_d3d9.hwnd = g_ddraw->hwnd;
 
             memset(&g_d3d9.params, 0, sizeof(g_d3d9.params));
 
@@ -84,13 +146,13 @@ BOOL d3d9_create()
                 if (SUCCEEDED(
                     IDirect3D9_CreateDevice(
                         g_d3d9.instance,
-                        D3DADAPTER_DEFAULT,
+                        g_ddraw->d3d9_adapter,
                         D3DDEVTYPE_HAL,
                         g_ddraw->hwnd,
                         behavior_flags[i] | (g_ddraw->fpupreserve ? D3DCREATE_FPU_PRESERVE : 0),
                         &g_d3d9.params,
                         &g_d3d9.device)))
-                    return g_d3d9.device && d3d9_create_resouces() && d3d9_set_states();
+                    return g_d3d9.device && d3d9_create_resources() && d3d9_set_states();
             }
         }
     }
@@ -102,8 +164,7 @@ BOOL d3d9_on_device_lost()
 {
     if (g_d3d9.device && IDirect3DDevice9_TestCooperativeLevel(g_d3d9.device) == D3DERR_DEVICENOTRESET)
     {
-        return d3d9_reset();
-        //return d3d9_create();
+        return d3d9_reset(g_ddraw->windowed);
     }
 
     return FALSE;
@@ -114,23 +175,31 @@ BOOL d3d9_device_initialized()
     return g_d3d9.device != NULL;
 }
 
-BOOL d3d9_reset()
+BOOL d3d9_reset(BOOL windowed)
 {
-    g_d3d9.params.Windowed = g_ddraw->windowed;
-    g_d3d9.params.BackBufferWidth = g_d3d9.params.Windowed ? 0 : g_ddraw->render.width;
-    g_d3d9.params.BackBufferHeight = g_d3d9.params.Windowed ? 0 : g_ddraw->render.height;
+    g_d3d9.params.Windowed = windowed;
+    g_d3d9.params.BackBufferWidth = windowed ? 0 : g_ddraw->render.width;
+    g_d3d9.params.BackBufferHeight = windowed ? 0 : g_ddraw->render.height;
     g_d3d9.params.BackBufferFormat = g_d3d9.bits_per_pixel == 16 ? D3DFMT_R5G6B5 : D3DFMT_X8R8G8B8;
 
     if (g_d3d9.device && SUCCEEDED(IDirect3DDevice9_Reset(g_d3d9.device, &g_d3d9.params)))
     {
-        d3d9_clear_resources();
-        return d3d9_create_resouces() && d3d9_set_states();
+        BOOL result = d3d9_set_states();
+
+        if (result)
+        {
+            InterlockedExchange(&g_ddraw->render.palette_updated, TRUE);
+            InterlockedExchange(&g_ddraw->render.surface_updated, TRUE);
+            ReleaseSemaphore(g_ddraw->render.sem, 1, NULL);
+        }
+
+        return result;
     }
 
     return FALSE;
 }
 
-BOOL d3d9_release()
+BOOL d3d9_release_resources()
 {
     if (g_d3d9.pixel_shader)
     {
@@ -165,23 +234,35 @@ BOOL d3d9_release()
         g_d3d9.vertex_buf = NULL;
     }
 
+    return TRUE;
+}
+
+BOOL d3d9_release()
+{
+    d3d9_release_resources();
+
     if (g_d3d9.device)
     {
-        IDirect3DDevice9_Release(g_d3d9.device);
+        while (IDirect3DDevice9_Release(g_d3d9.device));
         g_d3d9.device = NULL;
     }
 
     if (g_d3d9.instance)
     {
-        IDirect3D9_Release(g_d3d9.instance);
+        while (IDirect3D9_Release(g_d3d9.instance));
         g_d3d9.instance = NULL;
     }
 
     return TRUE;
 }
 
-static BOOL d3d9_create_resouces()
+static BOOL d3d9_create_resources()
 {
+    if (!g_d3d9.device)
+        return FALSE;
+
+    d3d9_release_resources();
+
     BOOL err = FALSE;
 
     int width = g_ddraw->width;
@@ -361,7 +442,6 @@ DWORD WINAPI d3d9_render_main(void)
     fpsl_init();
 
     BOOL needs_update = FALSE;
-    LONG clear_count = 0;
 
     DWORD timeout = g_ddraw->render.minfps > 0 ? g_ddraw->render.minfps_tick_len : 200;
 
@@ -374,17 +454,19 @@ DWORD WINAPI d3d9_render_main(void)
 
         static int tex_index = 0, pal_index = 0;
 
-        if (InterlockedExchange(&g_ddraw->render.clear_screen, FALSE))
-            clear_count = 10;
-
         fpsl_frame_start();
 
         EnterCriticalSection(&g_ddraw->cs);
 
         if (g_ddraw->primary && 
             g_ddraw->primary->bpp == g_ddraw->bpp &&
+            g_ddraw->primary->width == g_ddraw->width &&
+            g_ddraw->primary->height == g_ddraw->height &&
             (g_ddraw->bpp == 16 || g_ddraw->bpp == 32 || g_ddraw->primary->palette))
         {
+            if (g_ddraw->lock_surfaces)
+                EnterCriticalSection(&g_ddraw->primary->cs);
+
             if (g_ddraw->vhack)
             {
                 if (util_detect_low_res_screen())
@@ -411,17 +493,18 @@ DWORD WINAPI d3d9_render_main(void)
                 if (SUCCEEDED(IDirect3DDevice9_SetTexture(g_d3d9.device, 0, (IDirect3DBaseTexture9*)g_d3d9.surface_tex[tex_index])) &&
                     SUCCEEDED(IDirect3DTexture9_LockRect(g_d3d9.surface_tex[tex_index], 0, &lock_rc, &rc, 0)))
                 {
-                    unsigned char* src = (unsigned char*)g_ddraw->primary->surface;
-                    unsigned char* dst = (unsigned char*)lock_rc.pBits;
-
-                    int i;
-                    for (i = 0; i < g_ddraw->height; i++)
-                    {
-                        memcpy(dst, src, g_ddraw->primary->l_pitch);
-
-                        src += g_ddraw->primary->l_pitch;
-                        dst += lock_rc.Pitch;
-                    }
+                    blt_clean(
+                        lock_rc.pBits,
+                        0,
+                        0,
+                        g_ddraw->primary->width,
+                        g_ddraw->primary->height,
+                        lock_rc.Pitch,
+                        g_ddraw->primary->surface,
+                        0,
+                        0,
+                        g_ddraw->primary->pitch,
+                        g_ddraw->primary->bpp);
 
                     IDirect3DTexture9_UnlockRect(g_d3d9.surface_tex[tex_index], 0);
                 }
@@ -465,15 +548,14 @@ DWORD WINAPI d3d9_render_main(void)
                     }
                 }
             }
+
+            if (g_ddraw->lock_surfaces)
+                LeaveCriticalSection(&g_ddraw->primary->cs);
         }
 
         LeaveCriticalSection(&g_ddraw->cs);
 
-        if (clear_count > 0)
-        {
-            clear_count--;
-            IDirect3DDevice9_Clear(g_d3d9.device, 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
-        }
+        IDirect3DDevice9_Clear(g_d3d9.device, 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
 
         IDirect3DDevice9_BeginScene(g_d3d9.device);
         IDirect3DDevice9_DrawPrimitive(g_d3d9.device, D3DPT_TRIANGLESTRIP, 0, 2);

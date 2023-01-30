@@ -2,7 +2,7 @@
 
 WINDRES  ?= windres
 LDFLAGS   = -Iinc -Wall -Wl,--enable-stdcall-fixup -s
-CFLAGS    = -std=c99
+CFLAGS    = -std=c99 -O3 -march=i486
 LIBS      = -lgdi32 -lwinmm -lpsapi -ldbghelp -lole32
 
 FILES = src/IDirect3D/IDirect3D.c \
@@ -15,6 +15,8 @@ FILES = src/IDirect3D/IDirect3D.c \
         src/IDirectDraw/IDirectDrawSurface.c \
         src/IDirectDraw/IDirectDrawGammaControl.c \
         src/IAMMediaStream/IAMMediaStream.c \
+        src/crc32.c \
+        src/blt.c \
         src/dd.c \
         src/ddpalette.c \
         src/ddsurface.c \

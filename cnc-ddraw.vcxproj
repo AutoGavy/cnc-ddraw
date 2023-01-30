@@ -15,6 +15,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\blt.c" />
+    <ClCompile Include="src\crc32.c" />
     <ClCompile Include="src\ddclipper.c" />
     <ClCompile Include="src\debug.c" />
     <ClCompile Include="src\detours\creatwth.cpp" />
@@ -60,6 +62,8 @@
     <ClCompile Include="src\wndproc.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\blt.h" />
+    <ClInclude Include="inc\crc32.h" />
     <ClInclude Include="inc\d3d9shader.h" />
     <ClInclude Include="inc\ddclipper.h" />
     <ClInclude Include="inc\ddraw.h" />
@@ -88,7 +92,6 @@
     <ClInclude Include="inc\openglshader.h" />
     <ClInclude Include="inc\render_ogl.h" />
     <ClInclude Include="inc\render_gdi.h" />
-    <ClInclude Include="inc\scale_pattern.h" />
     <ClInclude Include="inc\screenshot.h" />
     <ClInclude Include="inc\config.h" />
     <ClInclude Include="inc\ddsurface.h" />
@@ -202,6 +205,13 @@ if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  
       <AdditionalDependencies>winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>ddraw.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>
+if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+    copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
+)
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugLog|Win32'">
     <ClCompile>
@@ -223,6 +233,13 @@ if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  
       <AdditionalDependencies>dbghelp.lib;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>ddraw.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>
+if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+    copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
+)
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

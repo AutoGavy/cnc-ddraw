@@ -9,6 +9,7 @@
 #include "render_ogl.h"
 #include "hook.h"
 #include "debug.h"
+#include "dllmain.h"
 
 static void cfg_init();
 static void cfg_create_ini();
@@ -36,17 +37,25 @@ void cfg_load()
     g_ddraw->accurate_timers = cfg_get_bool("accuratetimers", FALSE);
     g_ddraw->resizable = cfg_get_bool("resizable", TRUE);
     g_ddraw->nonexclusive = cfg_get_bool("nonexclusive", FALSE);
-    g_ddraw->fixpitch = cfg_get_bool("fixpitch", FALSE);
     g_ddraw->fixchilds = cfg_get_int("fixchilds", FIX_CHILDS_DETECT_PAINT);
     g_ddraw->fixwndprochook = cfg_get_bool("fixwndprochook", FALSE);
+    g_ddraw->flipclear = cfg_get_bool("flipclear", FALSE);
     g_ddraw->novidmem = cfg_get_bool("novidmem", FALSE);
     g_ddraw->fixnotresponding = cfg_get_bool("fixnotresponding", FALSE);
     g_ddraw->locktopleft = cfg_get_bool("locktopleft", FALSE);
+    g_ddraw->lock_surfaces = cfg_get_bool("lock_surfaces", FALSE);
     g_ddraw->releasealt = cfg_get_bool("releasealt", FALSE);
     g_ddraw->d3d9linear = cfg_get_bool("d3d9linear", TRUE);
     g_ddraw->gdilinear = cfg_get_bool("gdilinear", FALSE);
+    g_ddraw->d3d9on12 = cfg_get_bool("d3d9on12", FALSE);
     g_ddraw->resolutions = cfg_get_int("resolutions", RESLIST_NORMAL);
     g_ddraw->fpupreserve = cfg_get_bool("fpupreserve", FALSE);
+    g_ddraw->allow_wmactivate = cfg_get_bool("allow_wmactivate", FALSE);
+    g_ddraw->d3d9_adapter = cfg_get_int("d3d9_adapter", 0);
+    g_ddraw->guard_lines = cfg_get_int("guard_lines", 200);
+    g_ddraw->max_resolutions = cfg_get_int("max_resolutions", 0);
+    g_ddraw->limit_bltfast = cfg_get_bool("limit_bltfast", FALSE);
+    g_ddraw->opengl_core = cfg_get_bool("opengl_core", FALSE);
     cfg_get_string("screenshotdir", ".\\Screenshots\\", g_ddraw->screenshot_dir, sizeof(g_ddraw->screenshot_dir));
 
     if (g_ddraw->locktopleft)
@@ -55,6 +64,11 @@ void cfg_load()
     g_ddraw->armadahack = cfg_get_bool("armadahack", FALSE);
     g_ddraw->tshack = cfg_get_bool("tshack", FALSE);
     g_ddraw->infantryhack = cfg_get_bool("infantryhack", FALSE);
+
+    if (cfg_get_bool("game_handles_close", FALSE) || g_ddraw->infantryhack)
+    {
+        GameHandlesClose = TRUE;
+    }
 
     g_ddraw->hotkeys.toggle_fullscreen = cfg_get_int("keytogglefullscreen", VK_RETURN);
     g_ddraw->hotkeys.toggle_maximize = cfg_get_int("keytogglemaximize", VK_NEXT);
@@ -139,18 +153,18 @@ void cfg_load()
     }
 
     /* to do: read .glslp config file instead of the shader and apply the correct settings  */
-    cfg_get_string("shader", "", g_ddraw->shader, sizeof(g_ddraw->shader));
+    cfg_get_string("shader", "Shaders\\cubic\\catmull-rom-bilinear.glsl", g_ddraw->shader, sizeof(g_ddraw->shader));
 
     cfg_get_string("renderer", "auto", tmp, sizeof(tmp));
     TRACE("     Using %s renderer\n", tmp);
 
-    if (tolower(tmp[0]) == 's' || tolower(tmp[0]) == 'g') /* gdi */
-    {
-        g_ddraw->renderer = gdi_render_main;
-    }
-    else if (tolower(tmp[0]) == 'd') /* direct3d9 */
+    if (tolower(tmp[0]) == 'd' || g_ddraw->d3d9on12) /* direct3d9 */
     {
         g_ddraw->renderer = d3d9_render_main;
+    }
+    else if (tolower(tmp[0]) == 's' || tolower(tmp[0]) == 'g') /* gdi */
+    {
+        g_ddraw->renderer = gdi_render_main;
     }
     else if (tolower(tmp[0]) == 'o') /* opengl */
     {
@@ -226,7 +240,7 @@ static void cfg_create_ini()
     if (fh)
     {
         fputs(
-            "; cnc-ddraw - https://github.com/CnCNet/cnc-ddraw - https://cncnet.org\n"
+            "; cnc-ddraw - https://github.com/FunkyFr3sh/cnc-ddraw\n"
             "\n"
             "[ddraw]\n"
             "; ### Optional settings ###\n"
@@ -264,7 +278,7 @@ static void cfg_create_ini()
             "\n"
             "; Preliminary libretro shader support - (Requires 'renderer=opengl') https://github.com/libretro/glsl-shaders\n"
             "; 2x scaling example: https://imgur.com/a/kxsM1oY - 4x scaling example: https://imgur.com/a/wjrhpFV\n"
-            "shader=Shaders\\interpolation\\bilinear.glsl\n"
+            "shader=Shaders\\cubic\\catmull-rom-bilinear.glsl\n"
             "\n"
             "; Window position, -32000 = center to screen\n"
             "posX=-32000\n"
@@ -325,10 +339,6 @@ static void cfg_create_ini()
             "; Note: Can be used in case some GUI elements like buttons/textboxes/videos/etc.. are invisible\n"
             "nonexclusive=false\n"
             "\n"
-            "; Fixes issues where the pitch of a surface is not a multiple of 4\n"
-            "; Note: Enable this if some parts of the screen are being displayed diagonally\n"
-            "fixpitch=false\n"
-            "\n"
             "; Force CPU0 affinity, avoids crashes/freezing, *might* have a performance impact\n"
             "singlecpu=true\n"
             "\n"
@@ -343,6 +353,30 @@ static void cfg_create_ini()
             "; Set the precision for Direct3D9 floating-point calculations to the precision used by the calling thread\n"
             "; Note: Enable this if there are desyncs in online games\n"
             "fpupreserve=false\n"
+            "\n"
+            "\n"
+            "; Undocumented settings\n"
+            "d3d9_adapter=0\n"
+            "opengl_core=false\n"
+            "d3d9on12=false\n"
+            "guard_lines=200\n"
+            "max_resolutions=0\n"
+            "limit_bltfast=false\n"
+            "game_handles_close=false\n"
+            "accuratetimers=false\n"
+            "fixpitch=true\n"
+            "fixwndprochook=false\n"
+            "novidmem=false\n"
+            "fixnotresponding=false\n"
+            "locktopleft=false\n"
+            "lock_surfaces=false\n"
+            "releasealt=false\n"
+            "gdilinear=false\n"
+            "allow_wmactivate=false\n"
+            "dinputhook=false\n"
+            "flipclear=false\n"
+            "fixmousehook=false\n"
+            "bpp=0\n"
             "\n"
             "\n"
             "\n"
@@ -372,6 +406,13 @@ static void cfg_create_ini()
             "; The following settings override all settings shown above, section name = executable name\n"
             "\n"
             "\n"
+            "; Atrox\n"
+            "[Atrox]\n"
+            "renderer=gdi\n"
+            "hook=2\n"
+            "fixchilds=0\n"
+            "allow_wmactivate=true\n"
+            "\n"
             "; Atomic Bomberman\n"
             "[BM]\n"
             "maxgameticks=60\n"
@@ -380,7 +421,6 @@ static void cfg_create_ini()
             "[empires]\n"
             "renderer=opengl\n"
             "nonexclusive=true\n"
-            "fixpitch=true\n"
             "adjmouse=true\n"
             "resolutions=2\n"
             "\n"
@@ -388,7 +428,6 @@ static void cfg_create_ini()
             "[empiresx]\n"
             "renderer=opengl\n"
             "nonexclusive=true\n"
-            "fixpitch=true\n"
             "adjmouse=true\n"
             "resolutions=2\n"
             "\n"
@@ -396,18 +435,17 @@ static void cfg_create_ini()
             "[EMPIRES2]\n"
             "renderer=opengl\n"
             "nonexclusive=true\n"
-            "fixpitch=true\n"
             "adjmouse=true\n"
             "\n"
             "; Age of Empires II: The Conquerors\n"
             "[age2_x1]\n"
             "renderer=opengl\n"
             "nonexclusive=true\n"
-            "fixpitch=true\n"
             "adjmouse=true\n"
             "\n"
-            "; American Conquest\n"
+            "; American Conquest / Cossacks\n"
             "[DMCR]\n"
+            "resolutions=2\n"
             "minfps=-2\n"
             "\n"
             "; Age of Wonders\n"
@@ -450,29 +488,32 @@ static void cfg_create_ini()
             "[AT]\n"
             "fixchilds=0\n"
             "\n"
+            "; Baldur's Gate II\n"
+            "; Note: 'Use 3D Acceleration' must be disabled and 'Full Screen' must be enabled in BGConfig.exe\n"
+            "[BGMain]\n"
+            "resolutions=2\n"
+            "\n"
             "; Blade & Sword\n"
             "[comeon]\n"
+            "maxgameticks=62\n"
             "fixchilds=3\n"
-            "fixpitch=true\n"
             "\n"
             "; Blood II - The Chosen / Shogo - Mobile Armor Division\n"
             "[Client]\n"
             "checkfile=.\\SOUND.REZ\n"
             "noactivateapp=true\n"
             "\n"
-            "; Casino Empire\n"
-            "[CasinoEmpire]\n"
-            "hook=2\n"
-            "\n"
             "; Carmageddon\n"
             "[CARMA95]\n"
             "renderer=opengl\n"
             "noactivateapp=true\n"
+            "flipclear=true\n"
             "\n"
             "; Carmageddon\n"
             "[CARM95]\n"
             "renderer=opengl\n"
             "noactivateapp=true\n"
+            "flipclear=true\n"
             "\n"
             "; Carmageddon 2\n"
             "[Carma2_SW]\n"
@@ -485,12 +526,6 @@ static void cfg_create_ini()
             "\n"
             "; Command & Conquer: Sole Survivor\n"
             "[SOLE]\n"
-            "maxgameticks=120\n"
-            "maxfps=60\n"
-            "minfps=-1\n"
-            "\n"
-            "; Command & Conquer: Sole Survivor\n"
-            "[SoleSurvivor]\n"
             "maxgameticks=120\n"
             "maxfps=60\n"
             "minfps=-1\n"
@@ -613,6 +648,7 @@ static void cfg_create_ini()
             "\n"
             "; Caesar III\n"
             "[c3]\n"
+            "renderer=opengl\n"
             "nonexclusive=true\n"
             "adjmouse=true\n"
             "\n"
@@ -631,34 +667,26 @@ static void cfg_create_ini()
             "; Close Combat 2: A Bridge Too Far\n"
             "[cc2]\n"
             "adjmouse=true\n"
-            "fixpitch=true\n"
             "renderer=opengl\n"
             "nonexclusive=true\n"
             "\n"
             "; Close Combat 3: The Russian Front\n"
             "[cc3]\n"
             "adjmouse=true\n"
-            "fixpitch=true\n"
             "renderer=opengl\n"
             "nonexclusive=true\n"
             "\n"
             "; Close Combat 4: The Battle of the Bulge\n"
             "[cc4]\n"
             "adjmouse=true\n"
-            "fixpitch=true\n"
             "renderer=opengl\n"
             "nonexclusive=true\n"
             "\n"
             "; Close Combat 5: Invasion: Normandy\n"
             "[cc5]\n"
             "adjmouse=true\n"
-            "fixpitch=true\n"
             "renderer=opengl\n"
             "nonexclusive=true\n"
-            "\n"
-            "; Commandos\n"
-            "[Comandos]\n"
-            "fixpitch=true\n"
             "\n"
             "; Call To Power 2\n"
             "[ctp2]\n"
@@ -670,6 +698,11 @@ static void cfg_create_ini()
             "adjmouse=true\n"
             "renderer=gdi\n"
             "hook=2\n"
+            "\n"
+            "; Divine Divinity\n"
+            "[div]\n"
+            "resolutions=2\n"
+            "singlecpu=false\n"
             "\n"
             "; Dune 2000\n"
             "[dune2000]\n"
@@ -683,6 +716,7 @@ static void cfg_create_ini()
             "[AdSanguo]\n"
             "maxgameticks=60\n"
             "noactivateapp=true\n"
+            "limit_bltfast=true\n"
             "\n"
             "; Dark Reign: The Future of War\n"
             "[DKReign]\n"
@@ -701,19 +735,28 @@ static void cfg_create_ini()
             "maintas=false\n"
             "boxing=false\n"
             "\n"
-            "; Eggsucker\n"
-            "[eggsucker]\n"
-            "fixpitch=true\n"
-            "\n"
             "; Economic War\n"
             "[EcoW]\n"
             "maxgameticks=60\n"
             "fixnotresponding=true\n"
             "\n"
+            "; Fallout\n"
+            "[falloutw]\n"
+            "dinputhook=true\n"
+            "\n"
+            "; Fallout 2\n"
+            "[FALLOUT2]\n"
+            "dinputhook=true\n"
+            "\n"
+            "; Fairy Tale About Father Frost, Ivan and Nastya\n"
+            "[mrazik]\n"
+            "guard_lines=0\n"
+            "\n"
             "; Future Cop - L.A.P.D.\n"
             "[FCopLAPD]\n"
+            "renderer=opengl\n"
+            "nonexclusive=true\n"
             "adjmouse=true\n"
-            "fixchilds=3\n"
             "\n"
             "; G-Police\n"
             "[GPOLICE]\n"
@@ -766,9 +809,11 @@ static void cfg_create_ini()
             "devmode=true\n"
             "resolutions=2\n"
             "infantryhack=true\n"
+            "max_resolutions=90\n"
             "\n"
             "; Jagged Alliance 2\n"
             "[ja2]\n"
+            "singlecpu=false\n"
             "fixmousehook=true\n"
             "noactivateapp=true\n"
             "releasealt=true\n"
@@ -776,6 +821,7 @@ static void cfg_create_ini()
             "\n"
             "; Jagged Alliance 2: Wildfire\n"
             "[WF6]\n"
+            "singlecpu=false\n"
             "fixmousehook=true\n"
             "noactivateapp=true\n"
             "releasealt=true\n"
@@ -783,6 +829,7 @@ static void cfg_create_ini()
             "\n"
             "; Jagged Alliance 2 - UC mod\n"
             "[JA2_UC]\n"
+            "singlecpu=false\n"
             "fixmousehook=true\n"
             "noactivateapp=true\n"
             "releasealt=true\n"
@@ -790,6 +837,7 @@ static void cfg_create_ini()
             "\n"
             "; Jagged Alliance 2 - Vengeance Reloaded mod\n"
             "[JA2_Vengeance]\n"
+            "singlecpu=false\n"
             "fixmousehook=true\n"
             "noactivateapp=true\n"
             "releasealt=true\n"
@@ -840,12 +888,12 @@ static void cfg_create_ini()
             "\n"
             "; Moorhuhn\n"
             "[Moorhuhn]\n"
-            "renderer=opengl\n"
             "dinputhook=true\n"
             "\n"
             "; Moorhuhn 2\n"
             "[Moorhuhn2]\n"
             "dinputhook=true\n"
+            "releasealt=true\n"
             "\n"
             "; Outlaws\n"
             "[olwin]\n"
@@ -857,10 +905,6 @@ static void cfg_create_ini()
             "; Pharaoh\n"
             "[Pharaoh]\n"
             "adjmouse=true\n"
-            "\n"
-            "; Pacific General\n"
-            "[PACGEN]\n"
-            "renderer=opengl\n"
             "\n"
             "; Pax Imperia\n"
             "[Pax Imperia]\n"
@@ -874,10 +918,16 @@ static void cfg_create_ini()
             "; ROAD RASH\n"
             "[RoadRash]\n"
             "adjmouse=true\n"
+            "fixchilds=1\n"
             "\n"
             "; Septerra Core\n"
             "[septerra]\n"
             "hook=2\n"
+            "\n"
+            "; Sim Copter\n"
+            "[SimCopter]\n"
+            "renderer=opengl\n"
+            "nonexclusive=true\n"
             "\n"
             "; Settlers 3\n"
             "[s3]\n"
@@ -895,12 +945,14 @@ static void cfg_create_ini()
             "\n"
             "; Star Wars: Galactic Battlegrounds\n"
             "[battlegrounds]\n"
-            "fixpitch=true\n"
+            "renderer=opengl\n"
+            "nonexclusive=true\n"
             "adjmouse=true\n"
             "\n"
             "; Star Wars: Galactic Battlegrounds: Clone Campaigns\n"
             "[battlegrounds_x1]\n"
-            "fixpitch=true\n"
+            "renderer=opengl\n"
+            "nonexclusive=true\n"
             "adjmouse=true\n"
             "\n"
             "; Stronghold Crusader HD\n"
@@ -919,10 +971,6 @@ static void cfg_create_ini()
             "[Stronghold]\n"
             "adjmouse=true\n"
             "\n"
-            "; Steel Panthers: World At War\n"
-            "[MECH]\n"
-            "renderer=opengl\n"
-            "\n"
             "; Sim City 3000\n"
             "[SC3]\n"
             "renderer=opengl\n"
@@ -930,7 +978,6 @@ static void cfg_create_ini()
             "\n"
             "; Shadow Watch\n"
             "[sw]\n"
-            "fixpitch=true\n"
             "adjmouse=true\n"
             "\n"
             "; Shadow Flare\n"
@@ -941,10 +988,27 @@ static void cfg_create_ini()
             "maintas=false\n"
             "boxing=false\n"
             "\n"
+            "; Theme Park World\n"
+            "[TP]\n"
+            "fixwndprochook=true\n"
+            "\n"
+            "; Total Annihilation (Unofficial Beta Patch v3.9.02)\n"
+            "[TotalA]\n"
+            "lock_surfaces=true\n"
+            "singlecpu=false\n"
+            "fixwndprochook=true\n"
+            "\n"
+            "; Total Annihilation Replay Viewer (Unofficial Beta Patch v3.9.02)\n"
+            "[Viewer]\n"
+            "lock_surfaces=true\n"
+            "singlecpu=false\n"
+            "fixwndprochook=true\n"
+            "\n"
             "; Three Kingdoms: Fate of the Dragon\n"
             "[sanguo]\n"
             "maxgameticks=60\n"
             "noactivateapp=true\n"
+            "limit_bltfast=true\n"
             "\n"
             "; Twisted Metal\n"
             "[TWISTED]\n"
@@ -970,18 +1034,12 @@ static void cfg_create_ini()
             "\n"
             "; Uprising\n"
             "[uprising]\n"
-            "renderer=opengl\n"
-            "fixpitch=true\n"
             "adjmouse=true\n"
             "\n"
             "; Uprising 2\n"
             "[Uprising 2]\n"
             "renderer=opengl\n"
             "adjmouse=true\n"
-            "\n"
-            "; Warlords 3\n"
-            "[Darklord]\n"
-            "renderer=gdi\n"
             "\n"
             "; Wizardry 8\n"
             "[Wiz8]\n"
@@ -1021,9 +1079,10 @@ static void cfg_init()
     /* get process filename and directory */
     if (GetModuleFileNameA(NULL, g_config.game_path, sizeof(g_config.game_path) - 1) > 0)
     {
-        _splitpath(g_config.game_path, NULL, NULL, g_config.process_file_name, NULL);
+        _splitpath(g_config.game_path, NULL, NULL, g_config.process_file_name, g_config.process_file_ext);
 
-        char* end = strstr(g_config.game_path, g_config.process_file_name);
+        int len = strlen(g_config.game_path) - strlen(g_config.process_file_name) - strlen(g_config.process_file_ext);
+        char* end = strstr(g_config.game_path + len, g_config.process_file_name);
 
         if (end)
         {
@@ -1036,10 +1095,30 @@ static void cfg_init()
     }
 
     /* set up settings ini */
-    strncpy(g_config.ini_path, ".\\ddraw.ini", sizeof(g_config.ini_path) - 1);
+
+    if (strlen(g_config.game_path) > 0)
+    {
+        _snprintf(g_config.ini_path, sizeof(g_config.ini_path) - 1, "%sddraw.ini", g_config.game_path);
+
+        if (GetFileAttributes(g_config.ini_path) == INVALID_FILE_ATTRIBUTES)
+        {
+            cfg_create_ini();
+        }
+
+        if (GetFileAttributes(g_config.ini_path) == INVALID_FILE_ATTRIBUTES)
+        {
+            strncpy(g_config.ini_path, ".\\ddraw.ini", sizeof(g_config.ini_path) - 1);
+        }
+    }
+    else
+    {
+        strncpy(g_config.ini_path, ".\\ddraw.ini", sizeof(g_config.ini_path) - 1);
+    }
 
     if (GetFileAttributes(g_config.ini_path) == INVALID_FILE_ATTRIBUTES)
+    {
         cfg_create_ini();
+    }
 }
 
 DWORD cfg_get_string(LPCSTR key, LPCSTR default_value, LPSTR out_string, DWORD out_size)
