@@ -773,7 +773,7 @@ HRESULT dd_SetDisplayMode(DWORD dwWidth, DWORD dwHeight, DWORD dwBPP, DWORD dwFl
         if (g_ddraw->renderer == d3d9_render_main)
         {
             if (d3d9_device_initialized())
-                d3d9_active = d3d9_reset();
+                d3d9_active = d3d9_reset(g_ddraw->windowed);
             else
                 d3d9_active = d3d9_create();
 
@@ -809,7 +809,7 @@ HRESULT dd_SetDisplayMode(DWORD dwWidth, DWORD dwHeight, DWORD dwBPP, DWORD dwFl
         if (g_ddraw->renderer == d3d9_render_main)
         {
             if (d3d9_device_initialized())
-                d3d9_active = d3d9_reset();
+                d3d9_active = d3d9_reset(g_ddraw->windowed);
             else
                 d3d9_active = d3d9_create();
 

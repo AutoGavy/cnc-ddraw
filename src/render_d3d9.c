@@ -184,7 +184,8 @@ BOOL d3d9_reset(BOOL windowed)
 
     if (g_d3d9.device && SUCCEEDED(IDirect3DDevice9_Reset(g_d3d9.device, &g_d3d9.params)))
     {
-        BOOL result = d3d9_set_states();
+        d3d9_clear_resources();
+        BOOL result = d3d9_create_resources() && d3d9_set_states();
 
         if (result)
         {
