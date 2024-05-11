@@ -399,7 +399,7 @@ void hook_create(HOOKLIST* hooks, BOOL initial_hook)
                     _splitpath(mod_path, NULL, mod_dir, mod_filename, NULL);
 
                     // Don't hook reshade
-                    if (!g_ddraw->enable_reshade && _strcmpi(mod_filename, "d3d9") == 0)
+                    if (_strcmpi(mod_filename, "d3d9") == 0)
                         continue;
 
                     // Don't hook swiftshader/mesa3d

@@ -353,6 +353,16 @@ BOOL WINAPI fake_SetWindowPos(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int
 
 BOOL WINAPI fake_MoveWindow(HWND hWnd, int X, int Y, int nWidth, int nHeight, BOOL bRepaint)
 {
+    /*RECT wndRect;
+    DWORD dwReturnSpace;
+
+    _asm {
+        push eax;
+        mov eax, dword ptr ds : [ebp + 4] ;
+        mov dwReturnSpace, eax;
+        pop eax;
+    }*/
+
     if (g_ddraw && g_ddraw->hwnd)
     {
         if (g_ddraw->hwnd == hWnd)
@@ -368,6 +378,13 @@ BOOL WINAPI fake_MoveWindow(HWND hWnd, int X, int Y, int nWidth, int nHeight, BO
                 Y += pt.y;
             }
         }
+
+        /*if (g_ddraw->windowed && dwReturnSpace == 0x60B872u) {
+            GetClientRect(g_ddraw->hwnd, &wndRect);
+            ClientToScreen(g_ddraw->hwnd, (LPPOINT)&wndRect);
+            X += wndRect.left;
+            Y += wndRect.top;
+        }*/
     }
 
     return real_MoveWindow(hWnd, X, Y, nWidth, nHeight, bRepaint);
