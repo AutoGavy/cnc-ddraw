@@ -338,19 +338,20 @@ static BOOL d3d9_create_resources()
     return g_d3d9.vertex_buf && (g_d3d9.pixel_shader || g_ddraw->bpp == 16 || g_ddraw->bpp == 32) && !err;
 }
 
-BOOL d3d9_clear_resources()
-{
-    if (g_d3d9.vertex_buf)
+BOOL d3d9_clear_resources()
+{
+    if (g_d3d9.vertex_buf)
         IDirect3DVertexBuffer9_Release(g_d3d9.vertex_buf), g_d3d9.vertex_buf = NULL;
-    for (int i = 0; i < D3D9_TEXTURE_COUNT; i++)
-    {
+
+    for (int i = 0; i < D3D9_TEXTURE_COUNT; i++)
+    {
         IDirect3DTexture9_Release(g_d3d9.surface_tex[i]), g_d3d9.surface_tex[i] = NULL;
 
         if (g_ddraw->bpp == 8)
             IDirect3DTexture9_Release(g_d3d9.palette_tex[i]), g_d3d9.palette_tex[i] = NULL;
     }
-
-    return TRUE;
+
+    return TRUE;
 }
 
 static BOOL d3d9_set_states()
