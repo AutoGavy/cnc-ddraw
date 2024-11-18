@@ -41,7 +41,7 @@ BOOL d3d9_create()
     {
         return TRUE;
     }
-
+    
     d3d9_release();
 
     if (!g_d3d9.hmodule)
@@ -79,12 +79,12 @@ BOOL d3d9_create()
             (d3d_create9 && (g_d3d9.instance = d3d_create9(D3D_SDK_VERSION))))
         {
 #if _DEBUG 
-            D3DADAPTER_IDENTIFIER9 ai = { 0 };
+            D3DADAPTER_IDENTIFIER9 ai = {0};
             D3DCAPS9 caps = { 0 };
             HRESULT hr = IDirect3D9_GetAdapterIdentifier(g_d3d9.instance, g_ddraw->d3d9_adapter, 0, &ai);
             HRESULT hr2 = IDirect3D9_GetDeviceCaps(g_d3d9.instance, g_ddraw->d3d9_adapter, D3DDEVTYPE_HAL, &caps);
 
-            if (SUCCEEDED(hr))
+            if (SUCCEEDED(hr)) 
             {
                 TRACE("+--Direct3D9-------------------------------------\n");
                 TRACE("| D3D9On12:            %s\n", d3d9on12 != NULL ? "True" : "False");
@@ -92,10 +92,10 @@ BOOL d3d9_create()
                 TRACE("| DeviceId:            0x%x\n", ai.DeviceId);
                 TRACE("| Revision:            0x%x\n", ai.Revision);
                 TRACE("| SubSysId:            0x%x\n", ai.SubSysId);
-                TRACE("| Version:             %hu.%hu.%hu.%hu\n",
-                    HIWORD(ai.DriverVersion.HighPart),
-                    LOWORD(ai.DriverVersion.HighPart),
-                    HIWORD(ai.DriverVersion.LowPart),
+                TRACE("| Version:             %hu.%hu.%hu.%hu\n", 
+                    HIWORD(ai.DriverVersion.HighPart), 
+                    LOWORD(ai.DriverVersion.HighPart), 
+                    HIWORD(ai.DriverVersion.LowPart), 
                     LOWORD(ai.DriverVersion.LowPart));
 
                 TRACE("| Driver:              %s\n", ai.Driver);
@@ -330,27 +330,28 @@ static BOOL d3d9_create_resources()
             IDirect3DDevice9_CreatePixelShader(g_d3d9.device, (DWORD*)D3D9_PALETTE_SHADER, &g_d3d9.pixel_shader));
 
         IDirect3DDevice9_CreatePixelShader(
-            g_d3d9.device,
-            (DWORD*)D3D9_PALETTE_SHADER_BILINEAR,
+            g_d3d9.device, 
+            (DWORD*)D3D9_PALETTE_SHADER_BILINEAR, 
             &g_d3d9.pixel_shader_bilinear);
     }
 
     return g_d3d9.vertex_buf && (g_d3d9.pixel_shader || g_ddraw->bpp == 16 || g_ddraw->bpp == 32) && !err;
 }
 
-BOOL d3d9_clear_resources()
-{
-    if (g_d3d9.vertex_buf)
+BOOL d3d9_clear_resources()
+{
+    if (g_d3d9.vertex_buf)
         IDirect3DVertexBuffer9_Release(g_d3d9.vertex_buf), g_d3d9.vertex_buf = NULL;
-    for (int i = 0; i < D3D9_TEXTURE_COUNT; i++)
-    {
+
+    for (int i = 0; i < D3D9_TEXTURE_COUNT; i++)
+    {
         IDirect3DTexture9_Release(g_d3d9.surface_tex[i]), g_d3d9.surface_tex[i] = NULL;
 
         if (g_ddraw->bpp == 8)
             IDirect3DTexture9_Release(g_d3d9.palette_tex[i]), g_d3d9.palette_tex[i] = NULL;
     }
-
-    return TRUE;
+
+    return TRUE;
 }
 
 static BOOL d3d9_set_states()
@@ -364,7 +365,7 @@ static BOOL d3d9_set_states()
     if (g_ddraw->bpp == 8)
     {
         err = err || FAILED(IDirect3DDevice9_SetTexture(g_d3d9.device, 1, (IDirect3DBaseTexture9*)g_d3d9.palette_tex[0]));
-
+        
         BOOL bilinear =
             g_ddraw->d3d9linear &&
             g_d3d9.pixel_shader_bilinear &&
@@ -372,7 +373,7 @@ static BOOL d3d9_set_states()
 
         err = err || FAILED(
             IDirect3DDevice9_SetPixelShader(
-                g_d3d9.device,
+                g_d3d9.device, 
                 bilinear ? g_d3d9.pixel_shader_bilinear : g_d3d9.pixel_shader));
 
         if (bilinear)
@@ -458,7 +459,7 @@ DWORD WINAPI d3d9_render_main(void)
 
         EnterCriticalSection(&g_ddraw->cs);
 
-        if (g_ddraw->primary &&
+        if (g_ddraw->primary && 
             g_ddraw->primary->bpp == g_ddraw->bpp &&
             g_ddraw->primary->width == g_ddraw->width &&
             g_ddraw->primary->height == g_ddraw->height &&
