@@ -12,6 +12,42 @@
 #include "debug.h"
 #include "D3d9types.h"
 
+/*#include <dxgi.h>
+static UINT get_high_performance_graphicscard_guid();
+UINT get_high_performance_graphicscard_guid()
+{
+    const GUID m_IID_IDXGIFactory1 = { 0x770aae78, 0xf26f, 0x4dba, 0xa8, 0x29, 0x25, 0x3c, 0x83, 0xd1, 0xb3, 0x87 };
+    UINT adapterGUID = 0;
+
+    IDXGIFactory1* pFactory = NULL;
+    HRESULT hr = CreateDXGIFactory1(&m_IID_IDXGIFactory1, (void**)&pFactory);
+    if (FAILED(hr)) {
+        return adapterGUID;
+    }
+
+    IDXGIAdapter1* pAdapter = NULL;
+    for (UINT i = 0; ; ++i) {
+        hr = pFactory->lpVtbl->EnumAdapters1(pFactory, i, &pAdapter);
+        if (FAILED(hr)) {
+            break;
+        }
+
+        DXGI_ADAPTER_DESC1 adapterDesc;
+        pAdapter->lpVtbl->GetDesc1(pAdapter, &adapterDesc);
+
+        if (adapterDesc.DeviceId == 0 || adapterDesc.VendorId == 0x8086 || (adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
+            continue;
+        }
+
+        adapterGUID = i;
+        break;
+    }
+
+    if (pFactory) {
+        pFactory->lpVtbl->Release(pFactory);
+    }
+    return adapterGUID;
+}*/
 
 static BOOL d3d9_clear_resources();
 static BOOL d3d9_set_states();
@@ -168,10 +204,9 @@ BOOL d3d9_on_device_lost()
 
     return FALSE;
 }
-
-BOOL d3d9_device_initialized()
-{
-    return g_d3d9.device != NULL;
+BOOL d3d9_device_initialized()
+{
+    return g_d3d9.device != NULL;
 }
 
 BOOL d3d9_reset(BOOL windowed)
@@ -337,7 +372,6 @@ static BOOL d3d9_create_resources()
 
     return g_d3d9.vertex_buf && (g_d3d9.pixel_shader || g_ddraw->bpp == 16 || g_ddraw->bpp == 32) && !err;
 }
-
 BOOL d3d9_clear_resources()
 {
     if (g_d3d9.vertex_buf)

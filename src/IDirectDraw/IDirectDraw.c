@@ -8,7 +8,6 @@
 #include "ddsurface.h"
 #include "debug.h"
 
-
 HRESULT __stdcall IDirectDraw__QueryInterface(IDirectDrawImpl* This, REFIID riid, LPVOID FAR* ppvObj)
 {
     TRACE("-> %s(This=%p, riid=%08X, ppvObj=%p)\n", __FUNCTION__, This, (unsigned int)riid, ppvObj);
