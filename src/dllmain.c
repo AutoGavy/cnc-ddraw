@@ -9,18 +9,11 @@
 #include "config.h"
 #include "hook.h"
 
-#ifdef _WIN32
-__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
-__declspec(dllexport) DWORD AmdPowerXpressRequestHighPerformance = 0x00000001;
-#endif
-
-
 /* export for cncnet cnc games */
 BOOL GameHandlesClose;
 
 /* export for some warcraft II tools */
 PVOID FakePrimarySurface;
-
 
 HMODULE g_ddraw_module;
 
