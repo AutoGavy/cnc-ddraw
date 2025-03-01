@@ -22,7 +22,7 @@ BOOL d3d9_is_available()
 {
     LPDIRECT3D9 d3d9 = NULL;
 
-    if ((g_d3d9.hmodule = LoadLibrary("d3d9.ext")))
+    if ((g_d3d9.hmodule = LoadLibrary(g_ddraw->enable_reshade ? "d3d9.ext" : "d3d9.dll")))
     {
         IDirect3D9* (WINAPI * d3d_create9)(UINT) =
             (IDirect3D9 * (WINAPI*)(UINT))GetProcAddress(g_d3d9.hmodule, "Direct3DCreate9");
@@ -40,7 +40,7 @@ BOOL d3d9_create()
         return FALSE;
 
     if (!g_d3d9.hmodule)
-        g_d3d9.hmodule = LoadLibrary("d3d9.ext");
+        g_d3d9.hmodule = LoadLibrary(g_ddraw->enable_reshade ? "d3d9.ext" : "d3d9.dll");
 
     if (g_d3d9.hmodule)
     {
